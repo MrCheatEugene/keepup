@@ -1,58 +1,79 @@
-import requests
+import asyncio
+import aiohttp
 
-# Constants
-BASE_URL = "https://core.aeza.net"
-VM_URL = "https://vm.aeza.net"
-AUTHORIZATION = "Bearer undefined"
+minutes = 1  # delay between checks
+ip = '1.1.1.1'  # server ip
 
-# Settings
-host_id = "000000"  # VMManager Machine ID
-aeza_id = "000000"  # Machine ID in Aeza panel
-auth_type = "login"  # Type of login: 'login' (by username and password) or 'direct' (API key directly)
+vmmanager_id = ''  # server id from vm.aeza.net
+aeza_id = ''  # server id from my.aeza.net
 
-# Login credentials
-email = "admin@example.org"
-password = "12345678"
+login = ''  # login/email from my.aeza.net
+password = ''  # password from my.aeza.net
 
-# Direct API key
-api_key = "AAAAAAAAAAAAAAAAAAAAA"
 
-def get_auth_key():
-    response = requests.post(f"{BASE_URL}/api/auth?",
-                             json={"method": "credentials", "email": email, "password": password},
-                             headers={"authorization": AUTHORIZATION})
-    return response.json()['data']['session']
+async def ping(ip):
+  async with aiohttp.ClientSession() as session:
+    try:
+      async with session.get('http://' + ip, timeout=1) as resp:
+        print(resp.status)
+        return True
+    except aiohttp.client_exceptions.ServerDisconnectedError as e:
+      print(repr(e))
+      print('Server offline')
+      return False
+    except asyncio.exceptions.TimeoutError as e:
+      print(repr(e))
+      print('Server offline')
+      return False
 
-def get_vm_key(auth_key):
-    response = requests.get(f"{BASE_URL}/api/services/346290/goto?",
-                            headers={"authorization": f"Bearer {auth_key}"})
-    return response.json()['data'].replace(f"{VM_URL}/auth/key/", "")
 
-def authenticate_with_vm_key(vm_key):
-    response = requests.post(f"{VM_URL}/auth/v3/auth_by_key",
-                             headers={"cookie": f"_ym_d=1669657718; _ym_uid=1669657718468356443; ref=344585; _ym_isad=1; _ym_visorc=w; token={api_key}; ses6={vm_key}",
-                             "json": {"key": vm_key}})
-    return response.json()
+async def reboot():
+  async with aiohttp.ClientSession() as session:
+    headers = {'authorization': 'Bearer undefined'}
+    json = {'method': 'credentials', 'email': login, 'password': password}
+    async with session.post('https://core.aeza.net/api/auth?',
+                            headers=headers,
+                            json=json) as resp:
+      json_ = await resp.json()
+    api_key = json_['data']['session']
+    headers = {'authorization': f'Bearer {api_key}'}
+    async with session.get(
+        f'https://core.aeza.net/api/services/{aeza_id}/goto?',
+        headers=headers) as resp:
+      json_ = await resp.json()
+    keyvm = json_['data'].split('key/')[1]
+    json = {'key': keyvm}
+    async with session.post('https://vm.aeza.net/auth/v3/auth_by_key',
+                            json=json) as resp:
+      json_ = await resp.json()
+    sesskey = json_['session']
+    real_keyvm = json_['token']
+    cookies = {'token': real_keyvm, 'ses6': sesskey}
+    headers = {'x-xsrf-token': real_keyvm}
+    async with session.post(
+        f'https://vm.aeza.net/vm/v3/host/{vmmanager_id}/start',
+        cookies=cookies,
+        headers=headers) as resp:
+      respjson = await resp.json()
+  if 'id' in respjson:
+    print('УСПЕХ! Машинка автоматически запущена!')
+  else:
+    print(f'Ошибка. Не удалось запустить виртуальную машину. JSON-ответ: {respjson}')
 
-def start_vm(real_key_vm, session_key):
-    response = requests.post(f"{VM_URL}/vm/v3/host/{host_id}/start",
-                             headers={"cookie": f"_ym_d=1669657718; _ym_uid=1669657718468356443; ref=344585; _ym_isad=1; _ym_visorc=w; token={real_key_vm}; ses6={session_key}",
-                             "x-xsrf-token": real_key_vm})
-    return response.json()
 
-try:
-    requests.get("http://1.1.1.1")  # Check the machine status
-except:
-    if auth_type == "login":
-        auth_key = get_auth_key()
-    vm_key = get_vm_key(auth_key)
-    session = authenticate_with_vm_key(vm_key)
-    session_key = session['session']
-    real_key_vm = session['token']
-    response_json = start_vm(real_key_vm, session_key)
+async def main():  #reboot server if ping error 5 times in a row
+  error_count = 0
 
-    if 'id' in response_json:
-        print("SUCCESS! The machine has been automatically started!")
-    else:
-        print("Error. Failed to start the virtual machine. JSON response:")
-        print(response_json)
+  while True:
+    for i in range(5):
+      if await ping(ip):
+        error_count = 0
+      else:
+        error_count += 1
+        if error_count == 5:
+          await reboot()
+          break
+    await asyncio.sleep(60 * minutes)
+
+
+asyncio.run(main())
