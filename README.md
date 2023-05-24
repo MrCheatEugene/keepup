@@ -16,7 +16,7 @@ Auto-restart for Aeza's AMS-PROMO servers. Supports authorization by API key, an
 
 # Credits
 
-Thanks to [@ArifJanMC](https://github.com/ArifJanMC) for re-writing the whole thing, and removing low-quality code from me :)
+Thanks to [@ArifJanMC](https://github.com/ArifJanMC), [rekayno](https://github.com/rekayno) for re-writing the whole thing, and removing low-quality code from me :)
 
 # License
 
