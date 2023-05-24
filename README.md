@@ -14,10 +14,9 @@ Auto-restart for Aeza's AMS-PROMO servers. Supports authorization by API key, an
 `.
 8. Close the crontab's editor, save your changes, and now, we're done.
 
-# Low-quality code
+# Credits
 
-This script is almost a half a year old, where I had no experience with Python, and did everything in a very non-efficient ways.
-Maybe, sometime, I'll rewrite this script, and some others, so they would have somehow readable code, but not now.
+Thanks to [@ArifJanMC](https://github.com/ArifJanMC) for re-writing the whole thing, and removing low-quality code from me :)
 
 # License
 
