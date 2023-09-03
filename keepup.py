@@ -1,6 +1,9 @@
 import asyncio
 import aiohttp
 
+api_endpoint = "my.aeza.net/api"
+vm_endpoint = "vm.aeza.net"
+
 minutes = 1  # delay between checks
 ip = "1.1.1.1"  # server ip
 
@@ -32,19 +35,19 @@ async def reboot():
         headers = {"authorization": "Bearer undefined"}
         json = {"method": "credentials", "email": login, "password": password}
         async with session.post(
-            "https://core.aeza.net/api/auth?", headers=headers, json=json
+            f"https://{api_endpoint}/auth?", headers=headers, json=json
         ) as resp:
             json_ = await resp.json()
         api_key = json_["data"]["session"]
         headers = {"authorization": f"Bearer {api_key}"}
         async with session.get(
-            f"https://core.aeza.net/api/services/{aeza_id}/goto?", headers=headers
+            f"https://{api_endpoint}/services/{aeza_id}/goto?", headers=headers
         ) as resp:
             json_ = await resp.json()
         keyvm = json_["data"].split("key/")[1]
         json = {"key": keyvm}
         async with session.post(
-            "https://vm.aeza.net/auth/v3/auth_by_key", json=json
+            f"https://{vm_endpoint}/auth/v3/auth_by_key", json=json
         ) as resp:
             json_ = await resp.json()
         sesskey = json_["session"]
@@ -52,7 +55,7 @@ async def reboot():
         cookies = {"token": real_keyvm, "ses6": sesskey}
         headers = {"x-xsrf-token": real_keyvm}
         async with session.post(
-            f"https://vm.aeza.net/vm/v3/host/{vmmanager_id}/start",
+            f"https://{vm_endpoint}/vm/v3/host/{vmmanager_id}/start",
             cookies=cookies,
             headers=headers,
         ) as resp:
